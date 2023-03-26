@@ -10,79 +10,189 @@
 \date{\today}
 
 \begin{abstract}
-In the context of unsupervised learning Restricted Boltzmann Machines (RBMs) excel in the fields of pattern recognition and denoising, this leads to application in various fields such as Information Theory or, in the case of this paper, biological datasets.
-In this paper a RBM is built from an Ising-like model, implementing a proper partition function, energy function and log likelihood function that allows learning. Combining it with more proper data analysis methods such as clever gradiend descents the effectiveness of the framework is evaluated on plausible datasets for amino acids recognition, both for known and unknown sequences.
+In the context of unsupervised learning Restricted Boltzmann Machines
+(RBMs) excel in the fields of pattern recognition and denoising, this leads
+to application in various fields such as Information Theory or, in the case
+of this paper, biological datasets.  In this paper a RBM is built from an
+Ising-like model, implementing a proper partition function, energy function
+and log likelihood function that allows learning. Combining it with more
+proper data analysis methods such as clever gradiend descents the
+effectiveness of the framework is evaluated on plausible datasets for amino
+acids recognition, both for known and unknown sequences.
 \end{abstract}
 
 \maketitle
 
 \section{Introduction}
-Restricted Boltzmann Machines belong to the class of energy-based generative models. They 
-are \emph{generative} in the sense that they attempt to reproduce the underlying probability distribution that governs the generation of the training data, in order to generate new samples that could have been drawn from the same dataset \cite{Mehta2019}.
+Restricted Boltzmann Machines belong to the class of energy-based
+generative models. They are \emph{generative} in the sense that they
+attempt to reproduce the underlying probability distribution that governs
+the generation of the training data, in order to generate new samples that
+could have been drawn from the same dataset \cite{Mehta2019}.
 
-One use-case of this kind of models is in biology, with protein sequences \cite{Tubiana2019, Tubiana2019_b}: RBMs can efficiently and reliably learn complex and recurring patterns hidden in the sequences of amino acids. Indeed, we worked on a very rudimentary implementation of this concept: our dataset consisted of several short sequences of 1 and 0 bits, encoding patterns of polar and non-polar amino acids. The idea is to filter out the noise and inconsistencies from the sequence, and grasp the underlying pattern by having the RBM generate a “clean” sequence after training. Of course, this has no pretence of actual resemblance to reality; it rather serves as a proof of concept to show the capabilities of the learning model.
+One use-case of this kind of models is in biology, with protein sequences
+\cite{Tubiana2019, Tubiana2019_b}: RBMs can efficiently and reliably learn
+complex and recurring patterns hidden in the sequences of amino acids.
+Indeed, we worked on a very rudimentary implementation of this concept: our
+dataset consisted of several short sequences of 1 and 0 bits, encoding
+patterns of polar and non-polar amino acids. The idea is to filter out the
+noise and inconsistencies from the sequence, and grasp the underlying
+pattern by having the RBM generate a “clean” sequence after training. Of
+course, this has no pretence of actual resemblance to reality; it rather
+serves as a proof of concept to show the capabilities of the learning
+model.
 
-The learning framework of RBMs strongly resembles many Ising-like models of statistical physics. Taking the same equations, the problem is reframed as the iterative learning of the parameters of a variational distribution that should approximate the true distribution of the data.
+The learning framework of RBMs strongly resembles many Ising-like models of
+statistical physics. Taking the same equations, the problem is reframed as
+the iterative learning of the parameters of a variational distribution that
+should approximate the true distribution of the data.
 
-Another thing that we borrow from physics is the concept of \emph{hidden variables}. In Ising-like models, one usually performs a Hubbard–Stratonovich transformation to avoid having to deal with the complex quadratic interactions between spins, by shifting to the description of a system of non-interacting spins immersed in a Gaussian field \cite{Hubbard1959}. Similarly, in the context of Boltzmann learning, we can simplify the complex relationships between the variables in the training data by making them interact in a “controlled” manner with an additional layer of fictitious variables. 
+Another thing that we borrow from physics is the concept of \emph{hidden
+variables}. In Ising-like models, one usually performs a
+Hubbard–Stratonovich transformation to avoid having to deal with the
+complex quadratic interactions between spins, by shifting to the
+description of a system of non-interacting spins immersed in a Gaussian
+field \cite{Hubbard1959}. Similarly, in the context of Boltzmann learning,
+we can simplify the complex relationships between the variables in the
+training data by making them interact in a “controlled” manner with an
+additional layer of fictitious variables. 
+
 \section{Methods}
-We will borrow the notation from the 2019 review on Machine Learning by Mehta et al. \cite{Mehta2019}. Like we have said, Restricted Boltzmann Machines are trained with the goal of best approximating a joint probability distribution $p$ of the visible variables $\vec{v}$ and the hidden variables $\vec{h}$, which, carrying on the analogy with statistical physics models, is written as a Boltzmann distribution
+We will borrow the notation from the 2019 review on Machine Learning by
+Mehta et al. \cite{Mehta2019}. Like we have said, Restricted Boltzmann
+Machines are trained with the goal of best approximating a joint
+probability distribution $p$ of the visible variables $\vec{v}$ and the
+hidden variables $\vec{h}$, which, carrying on the analogy with statistical
+physics models, is written as a Boltzmann distribution
 \begin{equation}
     p(\vec{v}, \vec{h}) = \frac{e^{-E(\vec{v}, \vec{h})}}{Z},
 \end{equation}
 where the energy function $E(\vec{v}, \vec{h})$ takes the form
 \begin{equation}
-    E(\vec{v}, \vec{h}) = - \sum_{i = 1}^{N} a_i v_i - \sum_{\mu = 1}^{M} b_\mu h_\mu - \sum_{i = 1}^{N} \sum_{\mu = 1}^{M} W_{i \mu} v_i h_\mu.
+    E(\vec{v}, \vec{h}) = - \sum_{i = 1}^{N} a_i v_i - \sum_{\mu = 1}^{M}
+    b_\mu h_\mu - \sum_{i = 1}^{N} \sum_{\mu = 1}^{M} W_{i \mu} v_i h_\mu.
 \end{equation}
-We will refer to the variables $W_{i\mu}$ as \emph{weights}, and to the coefficients $a_i$ and $b_\mu$ as \emph{biases}. These are the parameters to learn, and we will collectively denote them with $\vec{\theta}$.
+We will refer to the variables $W_{i\mu}$ as \emph{weights}, and to the
+coefficients $a_i$ and $b_\mu$ as \emph{biases}. These are the parameters
+to learn, and we will collectively denote them with $\vec{\theta}$.
 
-The actual training, that is, the iterative approximation of the true $p$ with a parametrized $p_{\vec{\theta}}$, is performed through the Maximum Likelihood Estimation procedure. This involves the maximization – or minimization of the negative – of the \emph{log-likelihood} $\logL(\vec{\theta})$ of the model. In practice, this translates to the application of (stochastic) gradient descent methods to the following set of equations:
+The actual training, that is, the iterative approximation of the true $p$
+with a parametrized $p_{\vec{\theta}}$, is performed through the Maximum
+Likelihood Estimation procedure. This involves the maximization – or
+minimization of the negative – of the \emph{log-likelihood}
+$\logL(\vec{\theta})$ of the model. In practice, this translates to the
+application of (stochastic) gradient descent methods to the following set
+of equations:
 \begin{align}
-    \pdiff{\logL(\vec{\theta})}{W_{i\mu}} &= \expval{v_i h_\mu}_{\mathrm{data}} - \expval{v_i h_\mu}_{\mathrm{model}}, \label{eq:dL_dW} \\
-    \pdiff{\logL(\vec{\theta})}{a_i} &= \expval{v_i}_{\mathrm{data}} - \expval{v_i}_{\mathrm{model}}, \label{eq:dL_da} \\
-    \pdiff{\logL(\vec{\theta})}{b_\mu} &= \expval{h_\mu}_{\mathrm{data}} - \expval{h_\mu}_{\mathrm{model}}. \label{eq:dL_db}
+    \pdiff{\logL(\vec{\theta})}{W_{i\mu}} &= \expval{v_i
+    h_\mu}_{\mathrm{data}} - \expval{v_i h_\mu}_{\mathrm{model}},
+    \label{eq:dL_dW} \\
+    \pdiff{\logL(\vec{\theta})}{a_i} &= \expval{v_i}_{\mathrm{data}} -
+    \expval{v_i}_{\mathrm{model}}, \label{eq:dL_da} \\
+    \pdiff{\logL(\vec{\theta})}{b_\mu} &= \expval{h_\mu}_{\mathrm{data}} -
+    \expval{h_\mu}_{\mathrm{model}}. \label{eq:dL_db}
 \end{align}
-Here the expectation values with respect to the data are the empirical averages on the training samples, while the expectation values with respect to the model need to be estimated by drawing samples from the parametrized distribution $p_{\vec{\theta}}$.
+Here the expectation values with respect to the data are the empirical
+averages on the training samples, while the expectation values with respect
+to the model need to be estimated by drawing samples from the parametrized
+distribution $p_{\vec{\theta}}$.
 
-In our case, the gradient descent procedure was conducted on mini-batches of 500 samples with the \emph{RMSProp} algorithm (as described in \cite{Mehta2019}). To calculate the expectation values in Eqs.~\eqref{eq:dL_dW}–\eqref{eq:dL_db}, we performed three steps of block Gibbs sampling (so, a \emph{three-step Contrastive Divergence}), each step being a forward sample from the visible layer to the hidden layer, plus a backward sample in the opposite direction.
+In our case, the gradient descent procedure was conducted on mini-batches
+of 500 samples with the \emph{RMSProp} algorithm (as described in
+\cite{Mehta2019}). To calculate the expectation values in
+Eqs.~\eqref{eq:dL_dW}–\eqref{eq:dL_db}, we performed three steps of block
+Gibbs sampling (so, a \emph{three-step Contrastive Divergence}), each step
+being a forward sample from the visible layer to the hidden layer, plus a
+backward sample in the opposite direction.
 
-We should now specify that our training data consisted of many sequences of one-hot encoded blocks of six bits. These blocks were interpreted as encodings for the different amino acids chaining to form a “protein”. So, while the hidden layer posed no sampling problems – the $h_\mu$’s are simple binary variables – the backward sample on the visible layer required some special attention due to the one-hot encoding.
+We should now specify that our training data consisted of many sequences of
+one-hot encoded blocks of six bits. These blocks were interpreted as
+encodings for the different amino acids chaining to form a “protein”. So,
+while the hidden layer posed no sampling problems – the $h_\mu$’s are
+simple binary variables – the backward sample on the visible layer required
+some special attention due to the one-hot encoding.
 
-Let us define the possible values of each data block in $\vec{v}$ as $\vec{v}^{(k)}$, with $k = 1, \dots, 6$ denoting the position of the positive bit. During the backward sampling, we have to clamp the variables in the visible layer to every possible configuration and compute their respective probability. Therefore, a given block has six different probabilities associated to it:
+Let us define the possible values of each data block in $\vec{v}$ as
+$\vec{v}^{(k)}$, with $k = 1, \dots, 6$ denoting the position of the
+positive bit. During the backward sampling, we have to clamp the variables
+in the visible layer to every possible configuration and compute their
+respective probability. Therefore, a given block has six different
+probabilities associated to it:
 \begin{equation}
-    p(\vec{v}^{(k)} \given \vec{h}) = \frac{1}{Z} \exp\left[a_k + \sum_{\mu = 1}^{M} (b_\mu + W_{k\mu}) h_\mu \right].
+    p(\vec{v}^{(k)} \given \vec{h}) = \frac{1}{Z} \exp\left[a_k + \sum_{\mu
+    = 1}^{M} (b_\mu + W_{k\mu}) h_\mu \right].
     \label{eq:p-vk-given-h}
 \end{equation}
-The partition function $Z$ is the sum of the six probabilities, so the term with $\vec{b}$ cancels out. In practice, for each block of 6 bits in $\vec{v}$, we computed the cumulative probabilities $C_k$ as $\tilde{C}_k / \tilde{C}_6$ with
+The partition function $Z$ is the sum of the six probabilities, so the term
+with $\vec{b}$ cancels out. In practice, for each block of 6 bits in
+$\vec{v}$, we computed the cumulative probabilities $C_k$ as $\tilde{C}_k /
+\tilde{C}_6$ with
 \begin{equation}
-    \tilde{C}_k = \sum_{i = 1}^{k} \exp\left(a_i + \sum_{\mu = 1}^{M} W_{i\mu} h_\mu\right)
+    \tilde{C}_k = \sum_{i = 1}^{k} \exp\left(a_i + \sum_{\mu = 1}^{M}
+    W_{i\mu} h_\mu\right)
     \label{eq:C-tilde}
 \end{equation}
-Then, we generated a random number $r$, chose $\ell$ such that $C_{\ell-1}<r<C_\ell$, and replaced the block with $\vec{v}^{(\ell)}$. 
+Then, we generated a random number $r$, chose $\ell$ such that
+$C_{\ell-1}<r<C_\ell$, and replaced the block with $\vec{v}^{(\ell)}$. 
 
-We also explored the possibility to work with “spins” instead of bits, i.e. $+1/-1$ binary variables. Eq.~\eqref{eq:p-vk-given-h} has to be reworked a bit, giving
+We also explored the possibility to work with “spins” instead of bits, i.e.
+$+1/-1$ binary variables. Eq.~\eqref{eq:p-vk-given-h} has to be reworked a
+bit, giving
 \begin{equation}
     p(\vec{v}^{(k)} \given \vec{h}) = \frac{1}{Z'}
     \exp\Biggl[
-        - \sum_{j = 1}^{6} (-1)^{\delta_{jk}} \Biggl(a_j + \sum_{\mu = 1}^{M} W_{j\mu} h_\mu\Biggr)
+        - \sum_{j = 1}^{6} (-1)^{\delta_{jk}} \Biggl(a_j + \sum_{\mu =
+        1}^{M} W_{j\mu} h_\mu\Biggr)
     \Biggr],
     \label{eq:p-vk-given-h-spins}
 \end{equation}
-where $Z'$ is the partition function without the terms with $\vec{b}$ that cancel out. We can use a similar expression as Eq.~\eqref{eq:C-tilde} but with a factor of 2 multiplying the argument of the exponentials. The reason for this becomes clear if we factor out
+where $Z'$ is the partition function without the terms with $\vec{b}$ that
+cancel out. We can use a similar expression as Eq.~\eqref{eq:C-tilde} but
+with a factor of 2 multiplying the argument of the exponentials. The reason
+for this becomes clear if we factor out
 \begin{equation}
-    \exp\Biggl[-\sum_{j = 1}^{6} \Biggl(a_j + \sum_{\mu = 1}^{M} W_{j\mu} h_\mu\Biggr)\Biggr]
+    \exp\Biggl[-\sum_{j = 1}^{6} \Biggl(a_j + \sum_{\mu = 1}^{M} W_{j\mu}
+    h_\mu\Biggr)\Biggr]
 \end{equation}
 from Eq.~\eqref{eq:p-vk-given-h-spins}.
 
-During the training we keep track of the average value of the Energy over all the sequences and the value of the partition function at every epoch. Then we combine the two to obtain the log-likelihood:
-\begin{equation} 
-\logL(\vec{\theta}) = -\expval{E(\vec{\theta})}_{\mathrm{data}} - \log(Z(\vec{\theta}))
-\end{equation}
-to be sure that this quantity is increased during the training and then that it reaches a stable value.
+Before moving on to the results discussion, we should mention that, to give
+a meaningful rating to our model after training, we implemented the
+Adversarial Accuracy Indicator from \cite{Yale2020}. This is used to give
+an idea about the level of resemblance of the generated model to the
+original distribution \cite{Decelle2022}. Looking at two sample sets, one from
+the original dataset and one generated by the model, we count how many
+times a given data point’s nearest neighbour comes from the same set, and
+how many times it comes from the other. The idea is that, if the sets were
+to come from the same probability distribution, the ratio of nearest
+neighbours of the same kind to the total number of samples should approach
+$1 / 2$. We will comment more on the matter later on.
+
+%During the training, we also kept track of the average value of the Energy over
+%all the sequences and the value of the partition function at every epoch.
+%Then we combine the two to obtain the log-likelihood:
+%\begin{equation} 
+%\logL(\vec{\theta}) = -\expval{E(\vec{\theta})}_{\mathrm{data}} -
+%\log(Z(\vec{\theta}))
+%\end{equation}
+%to be sure that this quantity is increased during the training and then
+%that it reaches a stable value.
 
 \section{Results}
-Moreover, in this study case, the most useful quantity to visualize are the weights beacuse they suggest us an underlying pattern. Just by looking at the following heatmap we can suppose that the amino acids are of two different types: first type if there is $\vec{v}^{(k)}$ with $k=1,2,3$, second type if $k=4,5,6$. Using this notation we can visualize the denoised original data in a compact table. Denoised sequence are computed using the biases and the weights of the very last epoch with a single divergent step introducing a parameter $\beta$ which multiply rescale the energy. This is of course the analogous of the temperature in an Ising like system. In particular this system can be mapped in an Hopfield model and so, setting to a very low value the temperature, we expect to obtain a high overlap between the generated spins and the misterious patterns.
-Looking at the table we can guess the unknown distribution of the blocks in a sequence 11221122 etc 
+Moreover, in this study case, the most useful quantity to visualize are the
+weights beacuse they suggest us an underlying pattern. Just by looking at
+the following heatmap we can suppose that the amino acids are of two
+different types: first type if there is $\vec{v}^{(k)}$ with $k=1,2,3$,
+second type if $k=4,5,6$. Using this notation we can visualize the denoised
+original data in a compact table. Denoised sequence are computed using the
+biases and the weights of the very last epoch with a single divergent step
+introducing a parameter $\beta$ which multiply rescale the energy. This is
+of course the analogous of the temperature in an Ising like system. In
+particular this system can be mapped in an Hopfield model and so, setting
+to a very low value the temperature, we expect to obtain a high overlap
+between the generated spins and the misterious patterns.
+Looking at the table we can guess the unknown distribution of the blocks in
+a sequence 11221122 etc 
 %heatmap 
 
 \bibliography{biblio}
